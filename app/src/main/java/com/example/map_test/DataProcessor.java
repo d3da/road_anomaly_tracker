@@ -4,6 +4,7 @@ import android.os.CountDownTimer;
 import android.util.Log;
 
 import java.util.ArrayList;
+import java.util.List;
 
 public class DataProcessor extends CountDownTimer {
 
@@ -12,32 +13,40 @@ public class DataProcessor extends CountDownTimer {
     int accelMeasureCount = 0;
     int locationMeasureCount = 0;
 
-    ArrayList<AccelEvent> accelBuffer = new ArrayList<>();
+    private DataPointBuilder dataPointBuilder = null; // null is 'reset' value
 
-    private static class AccelEvent {
-        float magnitude;
+    private static class DataPointBuilder {
+        List<Float> magnitudes = new ArrayList<>();
         long timestamp;
-        int accuracy;
+        double[] location;
 
-        double[] latLng;
+        public DataPointBuilder(long timestamp, double[] location) {
+            this.timestamp = timestamp;
+            this.location = location;
+        }
 
-        public AccelEvent(long _timestamp, int _accuracy, float[] xyz, double[] locLatLng) {
-            timestamp = _timestamp;
-            accuracy = _accuracy;
+        void addValue(float[] xyz) {
+            magnitudes.add((float) Math.sqrt(Math.pow(xyz[0], 2) + Math.pow(xyz[1], 2) + Math.pow(xyz[2], 2)));
+        }
 
-            magnitude = (float) Math.sqrt(Math.pow(xyz[0], 2) + Math.pow(xyz[1], 2) + Math.pow(xyz[2], 2));
+        /**
+         * returns a single 'bumpiness'-ish value
+         *
+         * which is currently the average magnitude of acceleration vectors in the last 100 millis
+         *
+         * todo look at the bigger picture
+         */
+        float preprocess() {
+            float avg = 0;
+            for (float f : magnitudes) {
+                avg += f;
+            }
+            avg = (float) avg / magnitudes.size();
 
-            latLng = locLatLng;
+            return avg;
         }
     }
 
-//    private static class AccelBatch {
-//        List<Float> magnitudes = new ArrayList<>();
-//        long startTimestamp = 0;
-//
-//        public void addEvent()
-//
-//    }
 
 
 
@@ -47,11 +56,15 @@ public class DataProcessor extends CountDownTimer {
     }
 
     void addAccelData(long timestamp, int accuracy, float[] xyz) {
-        accelBuffer.add(new AccelEvent(timestamp, accuracy, xyz, lastKnownLocation));
+        if (dataPointBuilder == null) {
+            dataPointBuilder = new DataPointBuilder(timestamp, lastKnownLocation);
+        }
+
+        dataPointBuilder.addValue(xyz);
     }
 
 
-    void addLocationData(long timestamp, double lat, double lng) {
+    void addLocationData(double lat, double lng) {
         lastKnownLocation[0] = lat;
         lastKnownLocation[1] = lng;
         locationMeasureCount++;
@@ -62,36 +75,23 @@ public class DataProcessor extends CountDownTimer {
     @Override
     public void onTick(long l) {
 
-        if (accelBuffer.isEmpty()) {
-            Log.e("LOG", "No acceleration data received :(");
+        if (dataPointBuilder == null) {
+            Log.e("LOG", "no accel data? datapointbuilder is null");
             return;
         }
 
-        float maxMag = 0;
-        float minMag = Float.MAX_VALUE;
-        double sumMag = 0;
-
-        for (AccelEvent e : accelBuffer) {
-            if (e.magnitude > maxMag) {
-                maxMag = e.magnitude;
-            }
-            if (e.magnitude < minMag) {
-                minMag = e.magnitude;
-            }
-            sumMag += e.magnitude;
-        }
-        float avgMag = (float) (sumMag / accelBuffer.size());
-
+        float f = dataPointBuilder.preprocess();
 
         Log.e("LOG", String.format("\n\nlocation: %f/%f\ncount: accel %d, location %d", lastKnownLocation[0], lastKnownLocation[1],
                 accelMeasureCount, locationMeasureCount));
-        Log.e("LOG", String.format("Got batch measures of size %d\n max: %f, min: %f, avg: %f", accelBuffer.size(), maxMag, minMag, avgMag));
+        Log.e("LOG", String.format("\n\n\n\n\nBumpiness: %f\n", f));
 
-        accelBuffer.clear();
+        dataPointBuilder = null;
+
     }
 
     @Override
     public void onFinish() {
-        Log.e("LOG", "TIMER FINISHED (for some odd reason)");
+        Log.e("LOG", "TIMER FINISHED (shouldnt happen really)");
     }
 }
