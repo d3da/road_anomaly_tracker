@@ -1,8 +1,5 @@
 package com.example.map_test;
 
-import androidx.core.app.ActivityCompat;
-import androidx.fragment.app.FragmentActivity;
-
 import android.Manifest;
 import android.content.pm.PackageManager;
 import android.hardware.Sensor;
@@ -13,6 +10,9 @@ import android.location.Location;
 import android.os.Bundle;
 import android.os.Looper;
 import android.util.Log;
+
+import androidx.core.app.ActivityCompat;
+import androidx.fragment.app.FragmentActivity;
 
 import com.google.android.gms.location.FusedLocationProviderClient;
 import com.google.android.gms.location.LocationCallback;
@@ -39,7 +39,9 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
     // Sensor services
     private SensorManager sensMgr;
     private Sensor linearAccelSensor;
-    private Sensor magneticFieldSensor;
+
+    // Preprocessing
+    private DataProcessor dataProcessor;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -51,7 +53,10 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
                 .findFragmentById(R.id.map);
         mapFragment.getMapAsync(this);
 
-        //////////////////////////////////////////////////
+
+        // start data preprocessor
+        dataProcessor = new DataProcessor();
+
         /// Start location services
 
         fusedLocationProviderClient = LocationServices.getFusedLocationProviderClient(this);
@@ -59,10 +64,8 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
             startLocationUpdates();
         }
 
-        /// Start Sensor mgmt
-        sensMgr = (SensorManager) getSystemService(SENSOR_SERVICE);
-        linearAccelSensor = sensMgr.getDefaultSensor(Sensor.TYPE_LINEAR_ACCELERATION);
-        magneticFieldSensor = sensMgr.getDefaultSensor(Sensor.TYPE_MAGNETIC_FIELD);
+        startSensorUpdates();
+
     }
 
     /**
@@ -91,6 +94,17 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
             startLocationUpdates();
         }
 
+
+    }
+
+    private void startSensorUpdates() {
+        sensMgr = (SensorManager) getSystemService(SENSOR_SERVICE);
+
+        for (Sensor s : sensMgr.getSensorList(Sensor.TYPE_ALL)) {
+            Log.e("LOG", String.format("Found sensor %s", s.getName()));
+        }
+        linearAccelSensor = sensMgr.getDefaultSensor(Sensor.TYPE_LINEAR_ACCELERATION);
+
         sensMgr.registerListener(this, linearAccelSensor, SensorManager.SENSOR_DELAY_FASTEST);
 
     }
@@ -112,11 +126,13 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
                     if (location != null) {
                         double wayLatitude = location.getLatitude();
                         double wayLongitude = location.getLongitude();
-                        Log.e(this.getClass().toString(), String.format("%f, %f", wayLatitude, wayLongitude));
+//                        Log.e("LOG", String.format("%f, %f", wayLatitude, wayLongitude));
 
                         LatLng loc = new LatLng(wayLatitude, wayLongitude);
                         mMap.addMarker(new MarkerOptions().position(loc).title("My Location"));
-                        mMap.moveCamera(CameraUpdateFactory.newLatLng(loc));
+                        mMap.moveCamera(CameraUpdateFactory.newLatLngZoom(loc, 20f));
+
+                        dataProcessor.addLocationData(0, wayLatitude, wayLongitude);
                     }
                 }
             }
@@ -128,29 +144,22 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
         fusedLocationProviderClient.requestLocationUpdates(locationRequest, locationCallback, Looper.getMainLooper());
     }
 
-    private void startSensorUpdates(){
-
-    }
-
     @Override
     public void onSensorChanged(SensorEvent sensorEvent) {
         int accuracy = sensorEvent.accuracy;
         long timestamp = sensorEvent.timestamp;
-        float xVal = sensorEvent.values[0];
-        float yVal = sensorEvent.values[1];
-        float zVal = sensorEvent.values[2];
 
+        dataProcessor.addAccelData(timestamp, accuracy, sensorEvent.values.clone());
 
-
-        Log.e(this.getClass().toString(), String.format("time: %d\tacc: %d\tvalues: %d / %d/ %d", timestamp, accuracy, xVal, yVal, zVal));
-
-
-
+//        float xVal = sensorEvent.values[0];
+//        float yVal = sensorEvent.values[1];
+//        float zVal = sensorEvent.values[2];
+//        Log.e("LOG", String.format("time: %d\tsensor: %s\tacc: %d\tvalues: %f, %f, %f", timestamp, sensorName, accuracy, xVal, yVal, zVal));
     }
 
     @Override
     public void onAccuracyChanged(Sensor sensor, int accuracy) {
-        Log.e(this.getClass().toString(), String.format("Accuracy changed"));
+        Log.e("LOG", String.format("Accuracy of %s changed to %d", sensor.getName(), accuracy));
 
     }
 }
