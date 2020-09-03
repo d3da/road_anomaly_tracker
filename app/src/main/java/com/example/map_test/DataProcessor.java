@@ -1,6 +1,5 @@
 package com.example.map_test;
 
-import android.content.Context;
 import android.os.CountDownTimer;
 import android.util.Log;
 
@@ -23,9 +22,12 @@ public class DataProcessor extends CountDownTimer {
     int accelMeasureCount = 0;
     int locationMeasureCount = 0;
 
+    int tickIteration = 0;
+    int markerEvery = 100;
+
     private DataPointBuilder dataPointBuilder = null; // null is 'reset' value
 
-    Context activityContext;
+    MapsActivity activity;
     RequestQueue queue;
     String url = "http://82.197.215.243:5000/post";
 
@@ -48,7 +50,7 @@ public class DataProcessor extends CountDownTimer {
          *
          * which is currently the average magnitude of acceleration vectors in the last N millis
          *
-         * todo look at the bigger picture
+         * todo look at the bigger picture (in post)
          */
         float preprocess() {
             float avg = 0;
@@ -64,10 +66,10 @@ public class DataProcessor extends CountDownTimer {
 
 
 
-    public DataProcessor(Context activity) {
+    public DataProcessor(MapsActivity activity) {
         super(Long.MAX_VALUE, 100);
-        this.activityContext = activity;
-        this.queue = Volley.newRequestQueue(activityContext);
+        this.activity = activity;
+        this.queue = Volley.newRequestQueue(activity);
         start(); //start timer
     }
 
@@ -109,6 +111,11 @@ public class DataProcessor extends CountDownTimer {
 
         // send request to server
         sendToServer(f, lastKnownLocation);
+
+        if (tickIteration % markerEvery == 0) {
+            activity.setMarker(lastKnownLocation[0], lastKnownLocation[1]);
+        }
+        tickIteration++;
 
     }
 

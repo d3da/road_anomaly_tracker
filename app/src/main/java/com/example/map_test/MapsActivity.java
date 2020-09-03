@@ -128,9 +128,9 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
                         double wayLongitude = location.getLongitude();
 //                        Log.e("LOG", String.format("%f, %f", wayLatitude, wayLongitude));
 
-                        LatLng loc = new LatLng(wayLatitude, wayLongitude);
-                        mMap.addMarker(new MarkerOptions().position(loc).title("My Location"));
-                        mMap.moveCamera(CameraUpdateFactory.newLatLngZoom(loc, 20f));
+//                        LatLng loc = new LatLng(wayLatitude, wayLongitude);
+//                        mMap.addMarker(new MarkerOptions().position(loc).title("My Location"));
+//                        mMap.moveCamera(CameraUpdateFactory.newLatLngZoom(loc, 20f));
 
                         dataProcessor.addLocationData(wayLatitude, wayLongitude);
                     }
@@ -161,5 +161,11 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
     public void onAccuracyChanged(Sensor sensor, int accuracy) {
         Log.e("LOG", String.format("Accuracy of %s changed to %d", sensor.getName(), accuracy));
 
+    }
+
+    public void setMarker(double lat, double lng) {
+        LatLng loc = new LatLng(lat, lng);
+        mMap.addMarker(new MarkerOptions().position(loc).title("My Location"));
+        mMap.moveCamera(CameraUpdateFactory.newLatLngZoom(loc, 20f));
     }
 }
