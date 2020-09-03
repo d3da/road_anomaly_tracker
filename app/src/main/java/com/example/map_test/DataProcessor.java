@@ -18,6 +18,7 @@ import java.util.Map;
 public class DataProcessor extends CountDownTimer {
 
     double[] lastKnownLocation = {0f, 0f};
+    boolean locationKnown = false;
 
     int accelMeasureCount = 0;
     int locationMeasureCount = 0;
@@ -30,6 +31,9 @@ public class DataProcessor extends CountDownTimer {
     MapsActivity activity;
     RequestQueue queue;
     String url = "http://82.197.215.243:5000/post";
+
+    boolean sendData = true;
+
 
     private static class DataPointBuilder {
         List<Float> magnitudes = new ArrayList<>();
@@ -87,6 +91,7 @@ public class DataProcessor extends CountDownTimer {
         lastKnownLocation[1] = lng;
         locationMeasureCount++;
 
+        locationKnown = true;
     }
 
 
@@ -126,6 +131,9 @@ public class DataProcessor extends CountDownTimer {
 
 
     public void sendToServer(final float magnitude, final double[] location) {
+
+        if (!locationKnown || !sendData) return;
+
         StringRequest req = new StringRequest(Request.Method.POST, url,
                 new Response.Listener<String>() {
                     @Override
