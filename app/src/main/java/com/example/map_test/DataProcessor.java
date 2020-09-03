@@ -3,7 +3,17 @@ package com.example.map_test;
 import android.os.CountDownTimer;
 import android.util.Log;
 
+import com.android.volley.Request;
+import com.android.volley.RequestQueue;
+import com.android.volley.Response;
+import com.android.volley.VolleyError;
+import com.android.volley.toolbox.StringRequest;
+import com.android.volley.toolbox.Volley;
+
 import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 
 public class DataProcessor extends CountDownTimer {
 
@@ -12,46 +22,67 @@ public class DataProcessor extends CountDownTimer {
     int accelMeasureCount = 0;
     int locationMeasureCount = 0;
 
-    ArrayList<AccelEvent> accelBuffer = new ArrayList<>();
+    int tickIteration = 0;
+    int markerEvery = 100;
 
-    private static class AccelEvent {
-        float magnitude;
+    private DataPointBuilder dataPointBuilder = null; // null is 'reset' value
+
+    MapsActivity activity;
+    RequestQueue queue;
+    String url = "http://82.197.215.243:5000/post";
+
+    private static class DataPointBuilder {
+        List<Float> magnitudes = new ArrayList<>();
         long timestamp;
-        int accuracy;
+        double[] location;
 
-        double[] latLng;
+        public DataPointBuilder(long timestamp, double[] location) {
+            this.timestamp = timestamp;
+            this.location = location;
+        }
 
-        public AccelEvent(long _timestamp, int _accuracy, float[] xyz, double[] locLatLng) {
-            timestamp = _timestamp;
-            accuracy = _accuracy;
+        void addValue(float[] xyz) {
+            magnitudes.add((float) Math.sqrt(Math.pow(xyz[0], 2) + Math.pow(xyz[1], 2) + Math.pow(xyz[2], 2)));
+        }
 
-            magnitude = (float) Math.sqrt(Math.pow(xyz[0], 2) + Math.pow(xyz[1], 2) + Math.pow(xyz[2], 2));
+        /**
+         * returns a single 'bumpiness'-ish value
+         *
+         * which is currently the average magnitude of acceleration vectors in the last N millis
+         *
+         * todo look at the bigger picture (in post)
+         */
+        float preprocess() {
+            float avg = 0;
+            for (float f : magnitudes) {
+                avg += f;
+            }
+            avg = (float) avg / magnitudes.size();
 
-            latLng = locLatLng;
+            return avg;
         }
     }
 
-//    private static class AccelBatch {
-//        List<Float> magnitudes = new ArrayList<>();
-//        long startTimestamp = 0;
-//
-//        public void addEvent()
-//
-//    }
 
 
 
-    public DataProcessor() {
-        super(Long.MAX_VALUE, 1000);
+    public DataProcessor(MapsActivity activity) {
+        super(Long.MAX_VALUE, 100);
+        this.activity = activity;
+        this.queue = Volley.newRequestQueue(activity);
         start(); //start timer
     }
 
     void addAccelData(long timestamp, int accuracy, float[] xyz) {
-        accelBuffer.add(new AccelEvent(timestamp, accuracy, xyz, lastKnownLocation));
+        if (dataPointBuilder == null) {
+            dataPointBuilder = new DataPointBuilder(timestamp, lastKnownLocation);
+        }
+
+        dataPointBuilder.addValue(xyz);
     }
 
 
-    void addLocationData(long timestamp, double lat, double lng) {
+    void addLocationData(double lat, double lng) {
         lastKnownLocation[0] = lat;
         lastKnownLocation[1] = lng;
         locationMeasureCount++;
@@ -62,36 +93,67 @@ public class DataProcessor extends CountDownTimer {
     @Override
     public void onTick(long l) {
 
-        if (accelBuffer.isEmpty()) {
-            Log.e("LOG", "No acceleration data received :(");
+        if (dataPointBuilder == null) {
+            Log.e("LOG", "no accel data? datapointbuilder is null");
             return;
         }
 
-        float maxMag = 0;
-        float minMag = Float.MAX_VALUE;
-        double sumMag = 0;
+        float f = dataPointBuilder.preprocess();
 
-        for (AccelEvent e : accelBuffer) {
-            if (e.magnitude > maxMag) {
-                maxMag = e.magnitude;
-            }
-            if (e.magnitude < minMag) {
-                minMag = e.magnitude;
-            }
-            sumMag += e.magnitude;
-        }
-        float avgMag = (float) (sumMag / accelBuffer.size());
-
-
+        /* Do something with data here */
         Log.e("LOG", String.format("\n\nlocation: %f/%f\ncount: accel %d, location %d", lastKnownLocation[0], lastKnownLocation[1],
                 accelMeasureCount, locationMeasureCount));
-        Log.e("LOG", String.format("Got batch measures of size %d\n max: %f, min: %f, avg: %f", accelBuffer.size(), maxMag, minMag, avgMag));
+        Log.e("LOG", String.format("\n\n\n\n\nBumpiness: %f\n", f));
 
-        accelBuffer.clear();
+        // 'reset' the builder
+        dataPointBuilder = null;
+
+
+        // send request to server
+        sendToServer(f, lastKnownLocation);
+
+        if (tickIteration % markerEvery == 0) {
+            activity.setMarker(lastKnownLocation[0], lastKnownLocation[1]);
+        }
+        tickIteration++;
+
     }
 
     @Override
     public void onFinish() {
-        Log.e("LOG", "TIMER FINISHED (for some odd reason)");
+        Log.e("LOG", "TIMER FINISHED (shouldnt happen really)");
     }
+
+
+    public void sendToServer(final float magnitude, final double[] location) {
+        StringRequest req = new StringRequest(Request.Method.POST, url,
+                new Response.Listener<String>() {
+                    @Override
+                    public void onResponse(String response) {
+                        Log.e("LOG", String.format("server responded with \n%s", response));
+
+                    }
+                },
+                new Response.ErrorListener() {
+                    @Override
+                    public void onErrorResponse(VolleyError error) {
+
+                    }
+                }
+        ) {
+            @Override
+            protected Map<String, String> getParams() {
+                Map<String, String> params = new HashMap<>();
+                params.put("magnitude", Float.toString(magnitude));
+                params.put("longitude", Double.toString(location[0]));
+                params.put("latitude", Double.toString(location[1]));
+
+                return params;
+
+            }
+        };
+
+        queue.add(req);
+    }
+
 }
