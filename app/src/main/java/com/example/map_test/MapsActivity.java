@@ -55,7 +55,7 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
 
 
         // start data preprocessor
-        dataProcessor = new DataProcessor();
+        dataProcessor = new DataProcessor(this);
 
         /// Start location services
 
@@ -132,7 +132,7 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
                         mMap.addMarker(new MarkerOptions().position(loc).title("My Location"));
                         mMap.moveCamera(CameraUpdateFactory.newLatLngZoom(loc, 20f));
 
-                        dataProcessor.addLocationData(0, wayLatitude, wayLongitude);
+                        dataProcessor.addLocationData(wayLatitude, wayLongitude);
                     }
                 }
             }

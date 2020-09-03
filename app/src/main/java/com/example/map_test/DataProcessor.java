@@ -1,10 +1,20 @@
 package com.example.map_test;
 
+import android.content.Context;
 import android.os.CountDownTimer;
 import android.util.Log;
 
+import com.android.volley.Request;
+import com.android.volley.RequestQueue;
+import com.android.volley.Response;
+import com.android.volley.VolleyError;
+import com.android.volley.toolbox.StringRequest;
+import com.android.volley.toolbox.Volley;
+
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 public class DataProcessor extends CountDownTimer {
 
@@ -14,6 +24,10 @@ public class DataProcessor extends CountDownTimer {
     int locationMeasureCount = 0;
 
     private DataPointBuilder dataPointBuilder = null; // null is 'reset' value
+
+    Context activityContext;
+    RequestQueue queue;
+    String url = "http://82.197.215.243:5000/post";
 
     private static class DataPointBuilder {
         List<Float> magnitudes = new ArrayList<>();
@@ -32,7 +46,7 @@ public class DataProcessor extends CountDownTimer {
         /**
          * returns a single 'bumpiness'-ish value
          *
-         * which is currently the average magnitude of acceleration vectors in the last 100 millis
+         * which is currently the average magnitude of acceleration vectors in the last N millis
          *
          * todo look at the bigger picture
          */
@@ -50,8 +64,10 @@ public class DataProcessor extends CountDownTimer {
 
 
 
-    public DataProcessor() {
-        super(Long.MAX_VALUE, 1000);
+    public DataProcessor(Context activity) {
+        super(Long.MAX_VALUE, 100);
+        this.activityContext = activity;
+        this.queue = Volley.newRequestQueue(activityContext);
         start(); //start timer
     }
 
@@ -82,11 +98,17 @@ public class DataProcessor extends CountDownTimer {
 
         float f = dataPointBuilder.preprocess();
 
+        /* Do something with data here */
         Log.e("LOG", String.format("\n\nlocation: %f/%f\ncount: accel %d, location %d", lastKnownLocation[0], lastKnownLocation[1],
                 accelMeasureCount, locationMeasureCount));
         Log.e("LOG", String.format("\n\n\n\n\nBumpiness: %f\n", f));
 
+        // 'reset' the builder
         dataPointBuilder = null;
+
+
+        // send request to server
+        sendToServer(f, lastKnownLocation);
 
     }
 
@@ -94,4 +116,37 @@ public class DataProcessor extends CountDownTimer {
     public void onFinish() {
         Log.e("LOG", "TIMER FINISHED (shouldnt happen really)");
     }
+
+
+    public void sendToServer(final float magnitude, final double[] location) {
+        StringRequest req = new StringRequest(Request.Method.POST, url,
+                new Response.Listener<String>() {
+                    @Override
+                    public void onResponse(String response) {
+                        Log.e("LOG", String.format("server responded with \n%s", response));
+
+                    }
+                },
+                new Response.ErrorListener() {
+                    @Override
+                    public void onErrorResponse(VolleyError error) {
+
+                    }
+                }
+        ) {
+            @Override
+            protected Map<String, String> getParams() {
+                Map<String, String> params = new HashMap<>();
+                params.put("magnitude", Float.toString(magnitude));
+                params.put("longitude", Double.toString(location[0]));
+                params.put("latitude", Double.toString(location[1]));
+
+                return params;
+
+            }
+        };
+
+        queue.add(req);
+    }
+
 }
