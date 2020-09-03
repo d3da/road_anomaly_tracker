@@ -42,7 +42,7 @@ public class DataProcessor extends CountDownTimer {
     RequestQueue queue;
     String url = "http://82.197.215.243:5000";
 
-    boolean sendData = true;
+    boolean sendData = false;
 
 
     private static class DataPointBuilder {
@@ -188,7 +188,7 @@ public class DataProcessor extends CountDownTimer {
      * and add new markers
      */
     public void getServerLocationData(final GoogleMap gMap) {
-       StringRequest req = new StringRequest(Request.Method.GET, url+"/csv",
+       StringRequest req = new StringRequest(Request.Method.GET, url+"/csv2",
                 new Response.Listener<String>() {
                     /**
                      * Attempt to parse csv data by hand lol
@@ -203,7 +203,6 @@ public class DataProcessor extends CountDownTimer {
                             int i = 0;
                             while ((line = read.readLine()) != null) {
                                 i++;
-                                if (i % 20 != 0) continue;
                                 Log.e("LOG", line);
                                 String[] vals = line.split(",");
                                 if (vals.length != 4) {
