@@ -10,6 +10,8 @@ import android.location.Location;
 import android.os.Bundle;
 import android.os.Looper;
 import android.util.Log;
+import android.view.View;
+import android.widget.Button;
 import android.widget.CompoundButton;
 import android.widget.Switch;
 
@@ -21,7 +23,6 @@ import com.google.android.gms.location.LocationCallback;
 import com.google.android.gms.location.LocationRequest;
 import com.google.android.gms.location.LocationResult;
 import com.google.android.gms.location.LocationServices;
-import com.google.android.gms.maps.CameraUpdateFactory;
 import com.google.android.gms.maps.GoogleMap;
 import com.google.android.gms.maps.OnMapReadyCallback;
 import com.google.android.gms.maps.SupportMapFragment;
@@ -66,6 +67,13 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
             @Override
             public void onCheckedChanged(CompoundButton compoundButton, boolean b) {
                 dataProcessor.sendData = b;
+            }
+        });
+        Button button = findViewById(R.id.button);
+        button.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                dataProcessor.getServerLocationData(mMap);
             }
         });
 
@@ -138,13 +146,14 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
                     if (location != null) {
                         double wayLatitude = location.getLatitude();
                         double wayLongitude = location.getLongitude();
+                        float speedms = location.getSpeed();
 //                        Log.e("LOG", String.format("%f, %f", wayLatitude, wayLongitude));
 
 //                        LatLng loc = new LatLng(wayLatitude, wayLongitude);
 //                        mMap.addMarker(new MarkerOptions().position(loc).title("My Location"));
 //                        mMap.moveCamera(CameraUpdateFactory.newLatLngZoom(loc, 20f));
 
-                        dataProcessor.addLocationData(wayLatitude, wayLongitude);
+                        dataProcessor.addLocationData(wayLatitude, wayLongitude, speedms);
                     }
                 }
             }
@@ -178,6 +187,7 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
     public void setMarker(double lat, double lng) {
         LatLng loc = new LatLng(lat, lng);
         mMap.addMarker(new MarkerOptions().position(loc).title("My Location"));
-        mMap.moveCamera(CameraUpdateFactory.newLatLngZoom(loc, 20f));
+//        mMap.moveCamera(CameraUpdateFactory.newLatLngZoom(loc, 20f));
     }
+
 }

@@ -9,7 +9,16 @@ import com.android.volley.Response;
 import com.android.volley.VolleyError;
 import com.android.volley.toolbox.StringRequest;
 import com.android.volley.toolbox.Volley;
+import com.google.android.gms.maps.CameraUpdateFactory;
+import com.google.android.gms.maps.GoogleMap;
+import com.google.android.gms.maps.model.BitmapDescriptor;
+import com.google.android.gms.maps.model.BitmapDescriptorFactory;
+import com.google.android.gms.maps.model.LatLng;
+import com.google.android.gms.maps.model.MarkerOptions;
 
+import java.io.BufferedReader;
+import java.io.IOException;
+import java.io.StringReader;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -18,19 +27,20 @@ import java.util.Map;
 public class DataProcessor extends CountDownTimer {
 
     double[] lastKnownLocation = {0f, 0f};
+    float lastKnownLocationSpeed = 0;
     boolean locationKnown = false;
 
     int accelMeasureCount = 0;
     int locationMeasureCount = 0;
 
     int tickIteration = 0;
-    int markerEvery = 100;
+    int markerEvery = 10;
 
     private DataPointBuilder dataPointBuilder = null; // null is 'reset' value
 
     MapsActivity activity;
     RequestQueue queue;
-    String url = "http://82.197.215.243:5000/post";
+    String url = "http://82.197.215.243:5000";
 
     boolean sendData = true;
 
@@ -86,9 +96,10 @@ public class DataProcessor extends CountDownTimer {
     }
 
 
-    void addLocationData(double lat, double lng) {
+    void addLocationData(double lat, double lng, float speed) {
         lastKnownLocation[0] = lat;
         lastKnownLocation[1] = lng;
+        lastKnownLocationSpeed = speed;
         locationMeasureCount++;
 
         locationKnown = true;
@@ -121,8 +132,8 @@ public class DataProcessor extends CountDownTimer {
             if (tickIteration % markerEvery == 0) {
                 activity.setMarker(lastKnownLocation[0], lastKnownLocation[1]);
             }
+            tickIteration++;
         }
-        tickIteration++;
     }
 
     @Override
@@ -135,11 +146,16 @@ public class DataProcessor extends CountDownTimer {
 
         if (!sendData) return;
 
-        StringRequest req = new StringRequest(Request.Method.POST, url,
+        if (magnitude < 1f) return;
+        if (lastKnownLocationSpeed < 1f) return;
+
+
+        StringRequest req = new StringRequest(Request.Method.POST, url+"/post",
                 new Response.Listener<String>() {
                     @Override
                     public void onResponse(String response) {
-                        Log.e("LOG", String.format("server responded with \n%s", response));
+//                        Log.e("LOG", String.format("server responded with \n%s", response));
+                        ;
 
                     }
                 },
@@ -165,4 +181,72 @@ public class DataProcessor extends CountDownTimer {
         queue.add(req);
     }
 
+
+    /**
+     * get a csv file from the server
+     *, remove all the markers from the map
+     * and add new markers
+     */
+    public void getServerLocationData(final GoogleMap gMap) {
+       StringRequest req = new StringRequest(Request.Method.GET, url+"/csv",
+                new Response.Listener<String>() {
+                    /**
+                     * Attempt to parse csv data by hand lol
+                     * #rapidprototyping
+                     */
+                    @Override
+                    public void onResponse(String response) {
+                        try {
+//                            Log.e("LOG", response);
+                            BufferedReader read = new BufferedReader(new StringReader(response));
+                            String line;
+                            int i = 0;
+                            while ((line = read.readLine()) != null) {
+                                i++;
+                                if (i % 20 != 0) continue;
+                                Log.e("LOG", line);
+                                String[] vals = line.split(",");
+                                if (vals.length != 4) {
+                                    Log.e("LOG", String.format("malformed csv line\n%s", line));
+                                    return;
+                                }
+                                String ip = vals[0];
+                                String lngStr = vals[1];
+                                String latStr = vals[2];
+                                String magStr = vals[3];
+
+                                Double lng = Double.valueOf(lngStr);
+                                Double lat = Double.valueOf(latStr);
+                                Float mag = Float.valueOf(magStr);
+
+                                LatLng pos = new LatLng(lng, lat);
+
+                                float hue = Float.max(1, Float.min(120f, 120 - (mag / 20f * 120f)));
+
+                                BitmapDescriptor bmp = BitmapDescriptorFactory.defaultMarker(hue);
+
+                                gMap.addMarker(new MarkerOptions().position(pos).icon(bmp));
+                                gMap.moveCamera(CameraUpdateFactory.newLatLng(pos));
+//                                if (i > 50) {
+//                                    break;
+//                                }
+                            }
+
+                        } catch (IOException e) {
+                            Log.e("LOG", "IOEXCEPTION BRO");
+                        }
+
+                    }
+                },
+                new Response.ErrorListener() {
+                    @Override
+                    public void onErrorResponse(VolleyError error) {
+
+                    }
+                }
+        );
+
+        queue.add(req);
+
+    }
 }
