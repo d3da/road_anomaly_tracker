@@ -71,7 +71,7 @@ public class DataProcessor extends CountDownTimer {
 
 
     public DataProcessor(MapsActivity activity) {
-        super(Long.MAX_VALUE, 100);
+        super(Long.MAX_VALUE, 500);
         this.activity = activity;
         this.queue = Volley.newRequestQueue(activity);
         start(); //start timer
@@ -115,13 +115,14 @@ public class DataProcessor extends CountDownTimer {
 
 
         // send request to server
-        sendToServer(f, lastKnownLocation);
+        if (locationKnown) {
+            sendToServer(f, lastKnownLocation);
 
-        if (tickIteration % markerEvery == 0) {
-            activity.setMarker(lastKnownLocation[0], lastKnownLocation[1]);
+            if (tickIteration % markerEvery == 0) {
+                activity.setMarker(lastKnownLocation[0], lastKnownLocation[1]);
+            }
         }
         tickIteration++;
-
     }
 
     @Override
@@ -132,7 +133,7 @@ public class DataProcessor extends CountDownTimer {
 
     public void sendToServer(final float magnitude, final double[] location) {
 
-        if (!locationKnown || !sendData) return;
+        if (!sendData) return;
 
         StringRequest req = new StringRequest(Request.Method.POST, url,
                 new Response.Listener<String>() {

@@ -10,6 +10,8 @@ import android.location.Location;
 import android.os.Bundle;
 import android.os.Looper;
 import android.util.Log;
+import android.widget.CompoundButton;
+import android.widget.Switch;
 
 import androidx.core.app.ActivityCompat;
 import androidx.fragment.app.FragmentActivity;
@@ -56,6 +58,16 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
 
         // start data preprocessor
         dataProcessor = new DataProcessor(this);
+
+
+        // activate switch logic
+        Switch toggle = findViewById(R.id.switch_id);
+        toggle.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
+            @Override
+            public void onCheckedChanged(CompoundButton compoundButton, boolean b) {
+                dataProcessor.sendData = b;
+            }
+        });
 
         /// Start location services
 
