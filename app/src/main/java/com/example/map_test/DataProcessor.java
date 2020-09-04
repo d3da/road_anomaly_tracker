@@ -84,6 +84,13 @@ public class DataProcessor extends CountDownTimer {
         super(Long.MAX_VALUE, 500);
         this.activity = activity;
         this.queue = Volley.newRequestQueue(activity);
+        // clear cache after each request
+        this.queue.addRequestFinishedListener(new RequestQueue.RequestFinishedListener<Object>() {
+            @Override
+            public void onRequestFinished(Request<Object> request) {
+                queue.getCache().clear();
+            }
+        });
         start(); //start timer
     }
 
